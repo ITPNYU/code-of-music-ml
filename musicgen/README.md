@@ -71,6 +71,7 @@ This project uses AI to simulate loading samples onto a sampler, each sampler pa
    ![Kernel Selector](../screenshots/select_kernel_btn.png)
    - In the "Select Kernel" modal, choose "MusicGen" (or whatever name you gave your kernel during setup) from the dropdown
    ![Kernel Modal](../screenshots/select_kernel_modal.png)
+   - **Note:** If you don't see your newly created kernel in the dropdown, refresh the page once and try again
    - Click **Select** to confirm
 
 9. **Run the Notebook**

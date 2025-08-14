@@ -75,6 +75,7 @@ This example uses the same familiar grid interface, but instead of using AI to g
    ![Kernel Selector](../screenshots/select_kernel_btn.png)
    - In the "Select Kernel" modal, choose "Spleeter" (or whatever name you gave your kernel during setup) from the dropdown
    ![Kernel Modal](../screenshots/select_kernel_modal.png)
+   - **Note:** If you don't see your newly created kernel in the dropdown, refresh the page once and try again
    - Click **Select** to confirm
 
 9. **Run the Notebook**
