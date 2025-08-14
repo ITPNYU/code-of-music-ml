@@ -85,7 +85,7 @@ This project uses AI to simulate loading samples onto a sampler, each sampler pa
 
 You have several options to run the frontend:
 
-**Option 1: Local Server (Recommended)**
+**Option 1: Local Server**
 1. Open terminal in VS Code:
    - Press `Ctrl+`` (backtick) or `Cmd+`` (Mac)
    - Or go to **Terminal** → **New Terminal** in the top menu

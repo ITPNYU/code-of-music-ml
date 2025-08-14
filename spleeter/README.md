@@ -89,7 +89,7 @@ This example uses the same familiar grid interface, but instead of using AI to g
 
 You have several options to run the frontend:
 
-**Option 1: Local Server (Recommended)**
+**Option 1: Local Server**
 1. Open terminal in VS Code:
    - Press `Ctrl+`` (backtick) or `Cmd+`` (Mac)
    - Or go to **Terminal** → **New Terminal** in the top menu
