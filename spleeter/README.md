@@ -93,8 +93,9 @@ You have several options to run the frontend:
 1. Open terminal in VS Code:
    - Press `Ctrl+`` (backtick) or `Cmd+`` (Mac)
    - Or go to **Terminal** → **New Terminal** in the top menu
-2. Navigate to the `sketch` directory:
+2. Navigate to your project folder, then to the `sketch` directory:
    ```bash
+   cd spleeter
    cd sketch
    ```
 3. Start a simple Python server:
