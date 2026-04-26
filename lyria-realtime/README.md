@@ -35,12 +35,14 @@ Do **not** commit keys into the repo.
 
 1. Click **Connect**.
 2. Click **Play**.
-3. Move the XY pad and sliders to steer the output.
-4. (Optional) enable pitch tracking if you want the sketch to send detected pitch as control input.
+3. Edit the four corner prompt boxes on the XY pad. Use comma-separated prompt ideas in each box.
+4. Move the XY pad to blend those corner prompts while streaming.
+5. Use the sliders and toggles to steer BPM, chaos, guidance, key, drums, and bass.
+6. (Optional) click **Sample Voice 6s** and sing a short phrase. The sketch estimates the phrase's major/minor key and selects the closest Lyria scale.
 
 ## Troubleshooting
 
 - **Nothing happens after Connect**: ensure your key is valid and you’re online.
-- **Mic/pitch features don’t work**: the browser will prompt for microphone permission—allow it, then try again.
+- **Mic scale sampling doesn’t work**: the browser will prompt for microphone permission—allow it, then try again. Sing a steady, monophonic phrase for best results.
 - **It worked once, then stopped**: reload the page (websocket sessions can time out).
 

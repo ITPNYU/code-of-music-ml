@@ -60,12 +60,20 @@ const SCALES = [
   { name: 'B maj',  api: 'B_MAJOR_A_FLAT_MINOR'       },
 ];
 
-const CORNERS = [
+const PROMPT_CORNERS = [
   { label: 'AMBIENT',   color: [200, 80, 90], prompts: ['warm ambient pads', 'soft analog synth pad', 'airy soundscape'] },
-  { label: 'TEXTURE',   color: [300, 80, 90], prompts: ['tape hiss texture', 'shimmering atmosphere', 'gentle granular wash'] },
+  { label: 'TEXTURE',   color: [300, 80, 90], prompts: ['neon synthwave arpeggios', 'retro analog synth shimmer', 'wide cinematic 80s texture'] },
   { label: 'HARMONY',   color: [40,  80, 90], prompts: ['slow piano chords', 'rhodes chords', 'warm sustained chords'] },
   { label: 'DRONE',     color: [120, 80, 90], prompts: ['deep drone', 'subtle low drone', 'evolving ambient drone'] },
 ];
+
+const NOTE_NAMES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+const KEY_PROFILES = {
+  major: [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88],
+  minor: [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17],
+};
+const SCALE_SAMPLE_MS = 6000;
+const PITCH_ANALYSIS_INTERVAL_MS = 90;
 
 let ws = null, setupDone = false, isPlaying = false;
 let audioCtx = null, scheduledTime = 0;
@@ -78,13 +86,13 @@ let bpm = 85, density = 0.35, brightness = 0.55, temperature = 0.7, guidance = 4
 let muteDrums = false, muteBass = false;
 let selScale = 0;
 
-let mic, pitchDetector;
-let detectedHz = null, detectedNote = '', detectedMidi = -1;
-let pitchReady = false, pitchActive = false;
-let pitchSendCooldown = 0;
+let scaleMicStream = null, scaleMicSource = null, scaleAnalyser = null, scaleBuffer = null;
+let scaleSampling = false, scaleSampleUntil = 0, scaleNextAnalysis = 0;
+let scalePitchClasses = new Array(12).fill(0);
+let scaleSampleCount = 0;
+let scaleSampleStatus = 'ready';
 let uiLastClick = '';
 let uiLastClickTtl = 0;
-let uiPitchError = '';
 
 let configDirty = false, promptDirty = false;
 let sendTimer = 0;
@@ -98,6 +106,7 @@ let PANEL_X, PANEL_W;
 let hitRects = [];
 let activeSlider = null; // id of slider currently being dragged
 let apiKeyInput = null;
+let promptInputs = [];
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -119,6 +128,27 @@ function setup() {
   apiKeyInput.input(() => {
     API_KEY = apiKeyInput.value().trim();
   });
+
+  promptInputs = PROMPT_CORNERS.map((corner, idx) => {
+    const promptInput = createInput(corner.prompts.join(', '));
+    promptInput.attribute('aria-label', corner.label + ' corner prompts');
+    promptInput.attribute('placeholder', corner.label.toLowerCase() + ' prompts');
+    promptInput.style('font-family', UI.font);
+    promptInput.style('font-size', '12px');
+    promptInput.style('padding', '8px 10px');
+    promptInput.style('border-radius', UI.radius + 'px');
+    promptInput.style('border', '1px solid rgba(0,0,0,0.18)');
+    promptInput.style('background', 'rgba(255,255,255,0.92)');
+    promptInput.style('box-shadow', '0 4px 14px rgba(0,0,0,0.08)');
+    promptInput.input(() => {
+      PROMPT_CORNERS[idx].prompts = parsePromptInput(promptInput.value());
+      promptDirty = true;
+      sendTimer = SEND_INTERVAL;
+    });
+    return promptInput;
+  });
+
+  positionPromptInputs();
 }
 
 function computeLayout() {
@@ -133,6 +163,30 @@ function computeLayout() {
     // Place inside the top card, right-aligned.
     apiKeyInput.position(PANEL_X - 220, TOP_CARD_Y + 18);
   }
+  positionPromptInputs();
+}
+
+function positionPromptInputs() {
+  if (!promptInputs.length) return;
+
+  const inputW = constrain(min(240, PAD_W * 0.38), 130, max(130, PAD_W - 24));
+  const inputH = 34;
+  const inset = 12;
+  const positions = [
+    [PAD_X + inset, PAD_Y + inset],
+    [PAD_X + PAD_W - inputW - inset, PAD_Y + inset],
+    [PAD_X + inset, PAD_Y + PAD_H - inputH - inset],
+    [PAD_X + PAD_W - inputW - inset, PAD_Y + PAD_H - inputH - inset],
+  ];
+
+  for (let i = 0; i < promptInputs.length; i++) {
+    promptInputs[i].position(positions[i][0], positions[i][1]);
+    promptInputs[i].style('width', inputW + 'px');
+  }
+}
+
+function parsePromptInput(value) {
+  return value.split(',').map(p => p.trim()).filter(Boolean);
 }
 
 function draw() {
@@ -142,7 +196,7 @@ function draw() {
   drawXYPad();
   drawRightPanel();
   drawTopBar();
-  drawPitchViz();
+  processScaleSampler();
 
   sendTimer++;
   if (sendTimer >= SEND_INTERVAL && isPlaying) {
@@ -150,8 +204,6 @@ function draw() {
     if (promptDirty) { sendCurrentPrompts(); promptDirty = false; }
     if (configDirty) { sendCurrentConfig(); configDirty = false; }
   }
-
-  if (pitchSendCooldown > 0) pitchSendCooldown--;
 }
 
 // ── XY Pad ───────────────────────────────────────────────────────
@@ -305,8 +357,8 @@ function drawRightPanel() {
   textAlign(LEFT, TOP);
   textSize(9);
   fill(UI.textMuted);
-  text('PITCH → SCALE', lx, ry); ry += 14;
-  ry = drawPitchSection(lx, ry, rw);
+  text('MIC SCALE INTERPRETER', lx, ry); ry += 14;
+  ry = drawMicScaleInterpreter(lx, ry, rw);
 }
 
 function drawScaleGrid(x, y, w) {
@@ -334,74 +386,24 @@ function drawScaleGrid(x, y, w) {
   return y + rows * bh;
 }
 
-function drawPitchSection(x, y, w) {
+function drawMicScaleInterpreter(x, y, w) {
   push();
-  const btnH = 26;
-  if (!pitchReady) {
-    fill(UI.panel);
-    rect(x, y, w, btnH, 8);
-    noFill();
-    stroke(UI.border);
-    rect(x, y, w, btnH, 8);
-    noStroke();
-    fill(UI.text);
-    textAlign(CENTER, CENTER); textSize(9);
-    text('LOAD PITCH MODEL', x + w / 2, y + btnH / 2);
-    hitRects.push({ kind: 'pitchLoad', x, y, w, h: btnH });
-  } else {
-    const active = pitchActive;
-    fill(active ? UI.good : UI.panel);
-    rect(x, y, w, btnH, 8);
-    noFill();
-    stroke(active ? 'rgba(0,0,0,0.12)' : UI.border);
-    rect(x, y, w, btnH, 8);
-    noStroke();
-    fill(active ? UI.panel : UI.textMuted);
-    textAlign(CENTER, CENTER); textSize(9);
-    text(active ? 'PITCH ACTIVE' : 'PITCH OFF', x + w / 2, y + btnH / 2);
-    hitRects.push({ kind: 'pitchToggle', x, y, w, h: btnH });
-  }
-  y += btnH + 6;
+  const buttonLabel = scaleSampling ? 'LISTENING...' : 'SAMPLE VOICE 6S';
+  drawButton(buttonLabel, x, y, w, scaleSampling, 'scaleListen', [120, 70, 80]);
+  y += 34;
 
   textAlign(LEFT, TOP);
-  textSize(10);
+  textSize(9);
   fill(UI.text);
-  if (!pitchReady) {
-    text('status: model not loaded', x, y);
-  } else if (!pitchActive) {
-    text('status: off', x, y);
-  } else if (detectedHz) {
-    text('detected: ' + (detectedNote || '—') + '  ' + nf(detectedHz, 1, 1) + ' Hz', x, y);
-  } else {
-    text('status: listening…', x, y);
-  }
+  text(scaleSampleStatus, x, y);
   y += 16;
-  if (uiPitchError) {
-    textSize(9);
-    fill('rgba(225,112,85,0.95)');
-    text('pitch: ' + uiPitchError, x, y);
-    y += 14;
-  }
+
   textSize(8);
   fill(UI.textMuted);
-  text('auto-selecting nearest scale', x, y);
+  text('sings phrase → pitch histogram → best major/minor key', x, y);
   y += 14;
   pop();
   return y;
-}
-
-function drawPitchViz() {
-  if (!pitchActive || detectedMidi < 0) return;
-  const stripH = 6;
-  const stripY = height - stripH - 2;
-  for (let m = 21; m <= 108; m++) {
-    const x = map(m, 21, 108, PAD_X, PAD_X + PAD_W);
-    const isDetected = abs(m - detectedMidi) < 0.5;
-    fill(isDetected ? UI.good : 'rgba(0,0,0,0.08)');
-    rect(x, stripY, (PAD_W / 88), stripH);
-  }
-  textAlign(CENTER); textSize(8); fill(UI.textMuted);
-  text('♪ ' + detectedNote, PAD_X + PAD_W / 2, stripY - 4);
 }
 
 // ── Widgets (draw + register hit-rect, no inline click handling) ─
@@ -539,13 +541,6 @@ function drawTopBar() {
     uiLastClickTtl--;
   }
 
-  if (pitchActive && detectedNote) {
-    textAlign(RIGHT, TOP);
-    fill(UI.text);
-    textSize(12);
-    text('♪ ' + detectedNote, x + w - 16, y + 16);
-  }
-
   // Label for the API key input (the input itself is a DOM element).
   textAlign(RIGHT, TOP);
   fill(UI.textMuted);
@@ -559,7 +554,7 @@ function getBlendDescription() {
   const bl = (1 - padX) * padY,       br = padX * padY;
   const weights = [tl, tr, bl, br];
   const sorted = [0, 1, 2, 3].sort((a, b) => weights[b] - weights[a]);
-  const a = CORNERS[sorted[0]], b = CORNERS[sorted[1]];
+  const a = PROMPT_CORNERS[sorted[0]], b = PROMPT_CORNERS[sorted[1]];
   const pct = round(weights[sorted[0]] * 100);
   return `${a.label} ${pct}%  ·  ${b.label} ${100 - pct}%`;
 }
@@ -586,7 +581,9 @@ function findHit(mx, my, kindFilter) {
   return null;
 }
 
-function mousePressed() {
+function mousePressed(event) {
+  if (isPromptInputEvent(event)) return;
+
   // Sliders take priority on the right panel.
   const slider = findHit(mouseX, mouseY, ['slider']);
   if (slider) {
@@ -598,7 +595,7 @@ function mousePressed() {
   }
 
   const hit = findHit(mouseX, mouseY,
-    ['button', 'toggle', 'scale', 'pitchLoad', 'pitchToggle', 'pad']);
+    ['button', 'toggle', 'scale', 'pad']);
   if (!hit) return;
 
   switch (hit.kind) {
@@ -621,17 +618,6 @@ function mousePressed() {
       configDirty = true;
       sendTimer = SEND_INTERVAL;
       break;
-    case 'pitchLoad':
-      uiLastClick = 'pitch load';
-      uiLastClickTtl = 90;
-      loadPitchModel();
-      break;
-    case 'pitchToggle':
-      uiLastClick = 'pitch toggle';
-      uiLastClickTtl = 90;
-      pitchActive = !pitchActive;
-      if (pitchActive && pitchReady) getPitch();
-      break;
     case 'pad':
       uiLastClick = 'xy pad';
       uiLastClickTtl = 90;
@@ -641,7 +627,9 @@ function mousePressed() {
   }
 }
 
-function mouseDragged() {
+function mouseDragged(event) {
+  if (isPromptInputEvent(event)) return;
+
   if (activeSlider) {
     const r = hitRects.find(h => h.kind === 'slider' && h.id === activeSlider);
     if (r) applySliderValue(r, mouseX);
@@ -653,6 +641,14 @@ function mouseDragged() {
 function mouseReleased() {
   dragging = false;
   activeSlider = null;
+}
+
+function isPromptInputEvent(event) {
+  const target = event?.target;
+  return !!target && promptInputs.some(promptInput => {
+    const el = promptInput.elt;
+    return target === el || el.contains(target);
+  });
 }
 
 function applySliderValue(r, mx) {
@@ -671,6 +667,7 @@ function handleButtonAction(action) {
   if (action === 'connect') connectLyria();
   else if (action === 'play') startPlay();
   else if (action === 'stop') stopPlay();
+  else if (action === 'scaleListen') startScaleSample();
 }
 
 function updatePad() {
@@ -680,6 +677,137 @@ function updatePad() {
   brightness = 1 - padY;
   configDirty = true;
   promptDirty = true;
+}
+
+async function startScaleSample() {
+  if (scaleSampling) return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    scaleSampleStatus = 'mic API unavailable';
+    return;
+  }
+
+  try {
+    ensureAudioCtx();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+    scaleMicStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+    });
+    scaleMicSource = audioCtx.createMediaStreamSource(scaleMicStream);
+    scaleAnalyser = audioCtx.createAnalyser();
+    scaleAnalyser.fftSize = 4096;
+    scaleBuffer = new Float32Array(scaleAnalyser.fftSize);
+    scaleMicSource.connect(scaleAnalyser);
+
+    scalePitchClasses = new Array(12).fill(0);
+    scaleSampleCount = 0;
+    scaleSampling = true;
+    scaleSampleUntil = millis() + SCALE_SAMPLE_MS;
+    scaleNextAnalysis = 0;
+    scaleSampleStatus = 'sing a short phrase...';
+  } catch (err) {
+    scaleSampling = false;
+    scaleSampleStatus = err?.name === 'NotAllowedError' ? 'mic permission denied' : 'mic unavailable';
+    stopScaleMic();
+  }
+}
+
+function processScaleSampler() {
+  if (!scaleSampling || !scaleAnalyser || !scaleBuffer) return;
+
+  const now = millis();
+  if (now >= scaleSampleUntil) {
+    finishScaleSample();
+    return;
+  }
+  if (now < scaleNextAnalysis) return;
+  scaleNextAnalysis = now + PITCH_ANALYSIS_INTERVAL_MS;
+
+  scaleAnalyser.getFloatTimeDomainData(scaleBuffer);
+  const freq = detectPitch(scaleBuffer, audioCtx.sampleRate);
+  if (!freq) return;
+
+  const midi = round(69 + 12 * Math.log2(freq / 440));
+  const pitchClass = ((midi % 12) + 12) % 12;
+  scalePitchClasses[pitchClass] += 1;
+  scaleSampleCount++;
+  scaleSampleStatus = 'hearing ' + NOTE_NAMES[pitchClass] + '...';
+}
+
+function finishScaleSample() {
+  scaleSampling = false;
+  stopScaleMic();
+
+  if (scaleSampleCount < 8) {
+    scaleSampleStatus = 'not enough stable pitch';
+    return;
+  }
+
+  const detected = estimateScale(scalePitchClasses);
+  const scaleIdx = detected.mode === 'major' ? detected.root : (detected.root + 3) % 12;
+  selScale = scaleIdx;
+  configDirty = true;
+  sendTimer = SEND_INTERVAL;
+  scaleSampleStatus = NOTE_NAMES[detected.root] + ' ' + detected.mode + ' → ' + SCALES[scaleIdx].name;
+
+  if (isPlaying) {
+    sendCurrentConfig(true);
+    configDirty = false;
+  }
+}
+
+function stopScaleMic() {
+  if (scaleMicSource) scaleMicSource.disconnect();
+  if (scaleMicStream) scaleMicStream.getTracks().forEach(track => track.stop());
+  scaleMicSource = null;
+  scaleMicStream = null;
+  scaleAnalyser = null;
+  scaleBuffer = null;
+}
+
+function detectPitch(buffer, sampleRate) {
+  let rms = 0;
+  for (let i = 0; i < buffer.length; i++) rms += buffer[i] * buffer[i];
+  rms = Math.sqrt(rms / buffer.length);
+  if (rms < 0.012) return null;
+
+  const minLag = floor(sampleRate / 1000);
+  const maxLag = floor(sampleRate / 80);
+  let bestLag = -1;
+  let bestCorr = 0;
+
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let corr = 0;
+    const len = buffer.length - lag;
+    for (let i = 0; i < len; i++) corr += buffer[i] * buffer[i + lag];
+    corr = corr / len / (rms * rms);
+    if (corr > bestCorr) {
+      bestCorr = corr;
+      bestLag = lag;
+    }
+  }
+
+  if (bestLag < 0 || bestCorr < 0.35) return null;
+  return sampleRate / bestLag;
+}
+
+function estimateScale(histogram) {
+  let best = { root: 0, mode: 'major', score: -Infinity };
+  for (const mode of ['major', 'minor']) {
+    const profile = KEY_PROFILES[mode];
+    for (let root = 0; root < 12; root++) {
+      let score = 0;
+      for (let pc = 0; pc < 12; pc++) {
+        score += histogram[pc] * profile[(pc - root + 12) % 12];
+      }
+      if (score > best.score) best = { root, mode, score };
+    }
+  }
+  return best;
 }
 
 function windowResized() {
@@ -775,7 +903,7 @@ function buildPrompts() {
   const map_ = {};
   for (let c = 0; c < 4; c++) {
     if (weights[c] < 0.05) continue;
-    for (const p of CORNERS[c].prompts) {
+    for (const p of PROMPT_CORNERS[c].prompts) {
       map_[p] = (map_[p] || 0) + weights[c];
     }
   }
@@ -787,7 +915,6 @@ function sendCurrentPrompts() {
 }
 
 function sendCurrentConfig(resetCtx = false) {
-  if (resetCtx) sendPlayback('RESET_CONTEXT');
   sendMusicConfig({
     bpm:         round(bpm),
     density:     parseFloat(density.toFixed(2)),
@@ -798,6 +925,7 @@ function sendCurrentConfig(resetCtx = false) {
     muteDrums,
     muteBass,
   });
+  if (resetCtx) sendPlayback('RESET_CONTEXT');
 }
 
 function startPlay() {
@@ -815,56 +943,3 @@ function stopPlay() {
   isPlaying = false;
   scheduledTime = 0;
 }
-
-// ── ml5 Pitch Detection ───────────────────────────────────────────
-function loadPitchModel() {
-  uiPitchError = '';
-  if (typeof ml5 === 'undefined') {
-    uiPitchError = 'ml5 not loaded';
-    pitchReady = false;
-    pitchActive = false;
-    return;
-  }
-  userStartAudio();
-  mic = new p5.AudioIn();
-  mic.start(() => {
-    const audioCtxP5 = getAudioContext();
-    pitchDetector = ml5.pitchDetection(
-      'https://cdn.jsdelivr.net/gh/ml5js/ml5-data-and-models/models/pitch-detection/crepe/',
-      audioCtxP5,
-      mic.stream,
-      () => {
-        pitchReady = true;
-        pitchActive = true;
-        getPitch();
-      }
-    );
-  });
-}
-
-function getPitch() {
-  if (!pitchDetector) return;
-  pitchDetector.getPitch((err, freq) => {
-    if (!err && freq) {
-      detectedHz = freq;
-      detectedMidi = 69 + 12 * log2(freq / 440);
-      detectedNote = midiToNoteName(round(detectedMidi));
-
-      if (pitchActive && pitchSendCooldown <= 0) {
-        const pc = round(detectedMidi) % 12;
-        selScale = pc;
-        configDirty = true;
-        pitchSendCooldown = 120;
-      }
-    }
-    if (pitchActive) getPitch();
-  });
-}
-
-function midiToNoteName(midi) {
-  const names = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
-  const oct = floor(midi / 12) - 1;
-  return names[midi % 12] + oct;
-}
-
-function log2(x) { return Math.log(x) / Math.log(2); }
