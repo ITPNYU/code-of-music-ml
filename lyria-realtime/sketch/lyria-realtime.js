@@ -97,6 +97,7 @@ let PANEL_X, PANEL_W;
 // Each entry: { kind, x, y, w, h, ...payload }
 let hitRects = [];
 let activeSlider = null; // id of slider currently being dragged
+let apiKeyInput = null;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -104,6 +105,20 @@ function setup() {
   textFont(UI.font);
   noStroke();
   computeLayout();
+
+  // API key UI (don’t hardcode keys; this input is optional).
+  apiKeyInput = createInput('', 'password');
+  apiKeyInput.attribute('placeholder', 'API key (AIza...)');
+  apiKeyInput.style('font-family', UI.font);
+  apiKeyInput.style('font-size', '12px');
+  apiKeyInput.style('padding', '8px 10px');
+  apiKeyInput.style('border-radius', UI.radius + 'px');
+  apiKeyInput.style('border', '1px solid rgba(0,0,0,0.18)');
+  apiKeyInput.style('background', '#fff');
+  apiKeyInput.style('width', '220px');
+  apiKeyInput.input(() => {
+    API_KEY = apiKeyInput.value().trim();
+  });
 }
 
 function computeLayout() {
@@ -113,6 +128,11 @@ function computeLayout() {
   PAD_Y = TOP_CARD_Y + TOP_CARD_H + GUTTER;
   PAD_W = PANEL_X - 48;
   PAD_H = max(180, height - PAD_Y - 64);
+
+  if (apiKeyInput) {
+    // Place inside the top card, right-aligned.
+    apiKeyInput.position(PANEL_X - 220, TOP_CARD_Y + 18);
+  }
 }
 
 function draw() {
@@ -525,6 +545,12 @@ function drawTopBar() {
     textSize(12);
     text('♪ ' + detectedNote, x + w - 16, y + 16);
   }
+
+  // Label for the API key input (the input itself is a DOM element).
+  textAlign(RIGHT, TOP);
+  fill(UI.textMuted);
+  textSize(9);
+  text('API key', x + w - 16, y + 12);
   pop();
 }
 

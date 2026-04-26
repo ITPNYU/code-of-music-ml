@@ -24,6 +24,34 @@ class Spleeter {
       container.style('border-radius', '8px');
       container.style('box-shadow', '0 2px 8px rgba(0,0,0,0.1)');
       container.style('font-family', 'system-ui, -apple-system, sans-serif');
+
+      let urlLabel = createDiv('API URL:');
+      urlLabel.parent(container);
+      urlLabel.style('font-size', '14px');
+      urlLabel.style('color', '#666');
+      urlLabel.style('font-weight', '500');
+
+      let urlInput = createInput(this.NGROK_URL);
+      urlInput.parent(container);
+      urlInput.style('padding', '6px 10px');
+      urlInput.style('border-radius', '6px');
+      urlInput.style('border', '1px solid #ddd');
+      urlInput.style('min-width', '260px');
+      urlInput.input(() => {
+        this.NGROK_URL = urlInput.value().trim() || 'YOUR_NGROK_URL';
+      });
+
+      let gwLabel = createDiv('Gateway:');
+      gwLabel.parent(container);
+      gwLabel.style('font-size', '14px');
+      gwLabel.style('color', '#666');
+      gwLabel.style('font-weight', '500');
+
+      let gwToggle = createCheckbox('use /spleeter', this.useSharedGateway);
+      gwToggle.parent(container);
+      gwToggle.changed(() => {
+        this.useSharedGateway = !!gwToggle.checked();
+      });
       
       let fileLabel = createDiv('File:');
       fileLabel.parent(container);

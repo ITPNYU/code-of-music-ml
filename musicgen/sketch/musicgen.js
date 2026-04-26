@@ -65,6 +65,34 @@ class MusicGen {
     container.style("box-shadow", "0 2px 8px rgba(0,0,0,0.1)");
     container.style("font-family", "system-ui, -apple-system, sans-serif");
 
+    let urlLabel = createDiv("API URL:");
+    urlLabel.parent(container);
+    urlLabel.style("font-size", "14px");
+    urlLabel.style("color", "#666");
+    urlLabel.style("font-weight", "500");
+
+    let urlInput = createInput(this.apiUrl);
+    urlInput.parent(container);
+    urlInput.style("padding", "6px 10px");
+    urlInput.style("border-radius", "6px");
+    urlInput.style("border", "1px solid #ddd");
+    urlInput.style("min-width", "260px");
+    urlInput.input(() => {
+      this.apiUrl = urlInput.value().trim() || "YOUR_NGROK_URL";
+    });
+
+    let gwLabel = createDiv("Gateway:");
+    gwLabel.parent(container);
+    gwLabel.style("font-size", "14px");
+    gwLabel.style("color", "#666");
+    gwLabel.style("font-weight", "500");
+
+    let gwToggle = createCheckbox("use /musicgen", this.useSharedGateway);
+    gwToggle.parent(container);
+    gwToggle.changed(() => {
+      this.useSharedGateway = !!gwToggle.checked();
+    });
+
     this.testButton = createButton("Test Connection");
     this.testButton.parent(container);
     this.testButton.mousePressed(() => this.testConnection());
