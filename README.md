@@ -29,6 +29,13 @@ This example uses Google’s Magenta RealTime with a Holly Herndon–style finet
 - **Backend**: Jupyter notebook under `magentart-holly/backend/` (GPU + FastAPI on port **8103** by default)
 - **Frontend**: p5.js sketch in `magentart-holly/sketch/`
 
+### Lyria Realtime
+
+This example connects directly from the browser to Google’s Generative Language realtime music endpoint. It includes editable XY-pad prompt blending, realtime generation controls, and a mic scale interpreter that estimates the key of a sung phrase.
+
+- **Backend**: none in this repo; the browser connects to Google with a Generative Language API key
+- **Frontend**: p5.js sketch in `lyria-realtime/sketch/`
+
 ## Getting Started
 
 Each project has its own README with specific setup instructions. The projects follow a similar structure:
@@ -36,6 +43,8 @@ Each project has its own README with specific setup instructions. The projects f
 1. Set up and run the Python backend (in this case a Jupyter notebook for ease of learning but could also be a python script)
 2. Open the frontend sketch in a web browser
 3. Connect the frontend to the backend via ngrok URL. Note that this step may or may not be needed, depending on your setup. 
+
+The Lyria Realtime sketch is the exception: it does not use the local Python backend or shared gateway. Open `lyria-realtime/sketch/` and provide a Google Generative Language API key as described in `lyria-realtime/README.md`.
 
    **What is ngrok?** Think of ngrok like a magic tunnel that lets your computer talk to other computers on the internet. Normally, your computer is like a house with no address - other computers can't find it. Ngrok gives your computer a special internet address (like a street address) so that the web page in your browser can find and talk to the Python program running on your computer.
 
