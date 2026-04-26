@@ -56,3 +56,10 @@ Real-time Magenta RT with the Holly Herndon finetuned checkpoint: a FastAPI serv
 **p5 Web Editor:** create a sketch, paste `magentart.js` as your main script (or split as you prefer). Set `YOUR_NGROK_URL` to the gateway’s public URL. With the gateway, paths are under `/magentart/...`.
 
 **CORS:** if the editor is blocked, set `MAGENTA_CORS_ORIGINS` before starting the API (see the Holly notebook intro).
+
+## Sketches
+
+- **Mic loop** (`sketch/mic-loop.html`): hold to record, send one audio prompt, then loop the returned model chunk with a raw/model mix control.
+- **Realtime stream** (`sketch/realtime.html`): opens a WebSocket to `/ws/stream` and receives continuous model chunks while you edit four prompt boxes, blend them with the XY pad, change sampling params, and paint centroid weights.
+
+**Bandwidth warning:** the realtime stream requests chunks continuously. If you run it through ngrok, it can use bandwidth very quickly. Stop the stream when you are not actively demoing it.

@@ -24,10 +24,11 @@ This example explores Deezer's Spleeter, an audio splitting model. Upload audio 
 
 ### Magenta RT (Holly Herndon)
 
-This example uses Google’s Magenta RealTime with a Holly Herndon–style finetuned checkpoint: stream short audio chunks from a text/style prompt and centroid controls in the browser.
+This example uses Google’s Magenta RealTime with a Holly Herndon–style finetuned checkpoint: stream short audio chunks from a text/style prompt and centroid controls in the browser. It includes both a mic-loop sketch and a realtime streaming sketch with editable prompt boxes and live parameter controls.
 
 - **Backend**: Jupyter notebook under `magentart-holly/backend/` (GPU + FastAPI on port **8103** by default)
 - **Frontend**: p5.js sketch in `magentart-holly/sketch/`
+- **Note**: the realtime streaming sketch requests chunks continuously and can use ngrok bandwidth quickly
 
 ### Lyria Realtime
 
