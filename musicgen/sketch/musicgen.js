@@ -1,6 +1,7 @@
 class MusicGen {
   constructor() {
     this.apiUrl = "YOUR_NGROK_URL";
+    this.useSharedGateway = true;
     this.isGenerating = false;
     this.currentGeneratingPad = -1;
     this.generationProgress = 0;
@@ -19,9 +20,17 @@ class MusicGen {
     this.samples = [];
   }
   
-  // Helper method to normalize API URL (remove trailing slash)
   normalizeApiUrl() {
     return this.apiUrl.replace(/\/$/, '');
+  }
+
+  musicgenApiBase() {
+    const base = this.normalizeApiUrl();
+    return this.useSharedGateway ? `${base}/musicgen` : base;
+  }
+
+  apiFetchHeaders(extra = {}) {
+    return { "ngrok-skip-browser-warning": "true", ...extra };
   }
   
   initialize() {
@@ -360,7 +369,9 @@ class MusicGen {
     }
 
     try {
-      let response = await fetch(this.normalizeApiUrl() + "/health");
+      let response = await fetch(this.musicgenApiBase() + "/health", {
+        headers: this.apiFetchHeaders(),
+      });
       if (response.ok) {
         this.connectionStatus = "Connected";
         this.statusText = "Connection successful";
@@ -421,11 +432,11 @@ class MusicGen {
   
   async generateSample(padIndex, prompt) {
     try {
-      let response = await fetch(this.normalizeApiUrl() + "/generate", {
+      let response = await fetch(this.musicgenApiBase() + "/generate", {
         method: "POST",
-        headers: {
+        headers: this.apiFetchHeaders({
           "Content-Type": "application/json",
-        },
+        }),
         body: JSON.stringify({ prompt: prompt }),
       });
 

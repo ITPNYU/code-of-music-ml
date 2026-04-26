@@ -1,6 +1,7 @@
 class Spleeter {
     constructor() {
       this.NGROK_URL = "YOUR_NGROK_URL";
+      this.useSharedGateway = true;
       this.stems = [];
       this.statusText = "Ready to split audio";
       this.padPressTime = new Array(8).fill(0);
@@ -85,8 +86,9 @@ class Spleeter {
         formData.append('model_name', this.modelSelect.value());
         
         const cleanUrl = this.NGROK_URL.replace(/\/$/, '');
+        const apiRoot = this.useSharedGateway ? `${cleanUrl}/spleeter` : cleanUrl;
         
-        const response = await fetch(`${cleanUrl}/separate-zip`, {
+        const response = await fetch(`${apiRoot}/separate-zip`, {
           method: 'POST',
           body: formData,
           headers: {

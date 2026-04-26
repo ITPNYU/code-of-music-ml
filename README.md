@@ -22,6 +22,13 @@ This example explores Deezer's Spleeter, an audio splitting model. Upload audio 
 
 **note** this example also uses an external tool called jszip to receive audio stems from the backend
 
+### Magenta RT (Holly Herndon)
+
+This example uses Google’s Magenta RealTime with a Holly Herndon–style finetuned checkpoint: stream short audio chunks from a text/style prompt and centroid controls in the browser.
+
+- **Backend**: Jupyter notebook under `magentart-holly/backend/` (GPU + FastAPI on port **8103** by default)
+- **Frontend**: p5.js sketch in `magentart-holly/sketch/`
+
 ## Getting Started
 
 Each project has its own README with specific setup instructions. The projects follow a similar structure:
@@ -32,4 +39,14 @@ Each project has its own README with specific setup instructions. The projects f
 
    **What is ngrok?** Think of ngrok like a magic tunnel that lets your computer talk to other computers on the internet. Normally, your computer is like a house with no address - other computers can't find it. Ngrok gives your computer a special internet address (like a street address) so that the web page in your browser can find and talk to the Python program running on your computer.
 
-   **When do you need ngrok?** You only need this magic tunnel if you're running the AI models on your own computer and want to access them from anywhere (like your phone or another computer), or if you're running them on a server that's hidden away from the internet. 
+   **When do you need ngrok?** You only need this magic tunnel if you're running the AI models on your own computer and want to access them from anywhere (like your phone or another computer), or if you're running them on a server that's hidden away from the internet.
+
+### One ngrok URL for MusicGen, Spleeter, and Magenta RT Holly
+
+Each backend can use its own Conda env. To expose all of them behind a single public URL:
+
+1. Keep **`musicgen/backend/musicgen.ipynb`**, **`spleeter/backend/spleeter.ipynb`**, and **`magentart-holly/backend/magentart_holly.ipynb`** running (each in its own kernel / env). Default ports: **8101** (MusicGen), **8102** (Spleeter), **8103** (Magenta RT Holly); override with `MUSICGEN_PORT`, `SPLEETER_PORT`, and `MAGENTART_PORT`. These notebooks do **not** start ngrok unless you set `USE_NGROK=1` on a given service.
+2. In a **small separate** environment, open **`gateway/gateway.ipynb`**, install `gateway/requirements.txt`, run the code cell once, and leave the notebook running. It starts a local proxy on **8080** (via `PORT`) and, by default, an **ngrok tunnel** to that port so you get one public URL. Set `USE_NGROK=0` to skip ngrok (local-only); set `NGROK_AUTHTOKEN` in the environment on a server so you are not prompted.
+3. Set the sketches’ `YOUR_NGROK_URL` / `apiUrl` to the printed ngrok URL (no path). With shared gateway mode on (defaults in the JS), calls go to `/musicgen/...`, `/spleeter/...`, and **`/magentart/...`** on that host. Set `useSharedGateway` to `false` if the public URL points directly at one backend.
+
+Override the gateway with `PORT`, `MUSICGEN_UPSTREAM`, `SPLEETER_UPSTREAM`, `MAGENTART_UPSTREAM`, and ngrok vars; see `gateway/.env.example`.

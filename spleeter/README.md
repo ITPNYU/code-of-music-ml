@@ -117,6 +117,6 @@ You have several options to run the frontend:
 5. Create a new file called `spleeter.js` and copy the content from `sketch/spleeter.js`
 
 **After Setup:**
-1. Update the `NGROK_URL` variable in `spleeter.js` with your ngrok URL (e.g., `https://abc123.ngrok.io` - trailing slash is optional)
+1. Update the `NGROK_URL` variable in `spleeter.js` with your public API URL. If you use the shared gateway from the repo root README, this is your ngrok URL (the sketch calls `/spleeter/...` on that host). If you tunnel the Spleeter backend only, use that URL instead.
 2. Upload an audio file, select a model, and click "Split Audio"
 3. After processing, play back individual stems using number keys 1-8

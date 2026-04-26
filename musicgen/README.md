@@ -113,7 +113,7 @@ You have several options to run the frontend:
 5. Create a new file called `musicgen.js` and copy the content from `sketch/musicgen.js`
 
 **After Setup:**
-1. Update the `apiUrl` variable in `musicgen.js` with your ngrok URL (e.g., `https://abc123.ngrok.io` - trailing slash is optional)
+1. Update the `apiUrl` variable in `musicgen.js` with your public API URL. If you use the shared gateway from the repo root README, this is your ngrok URL (the sketch calls `/musicgen/...` on that host). If you tunnel the MusicGen backend only, use that URL instead.
 2. Enter prompts for each pad or use the defaults
 3. Click "Generate All" to create your samples
 4. After generation, use keyboard keys to play back samples:
